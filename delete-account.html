@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DayFlow · Delete my account</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+<header><div class="logo">D</div><h1>Delete my DayFlow account</h1></header>
+<p class="sub">You can delete your account and your data at any time. · <a href="suppression-compte.html">Version française</a></p>
+
+<section>
+<h2>What is deleted</h2>
+<ul>
+<li>Your account: email address, password and first name.</li>
+<li>Your membership of all your groups and shared shopping lists.</li>
+<li>Groups where you were the only member, with their content.</li>
+</ul>
+<h3>What is kept</h3>
+<ul>
+<li>Data you shared <strong>stays in groups</strong> that have other members, as it belongs to them too. Your first name is no longer shown (“Former member”).</li>
+
+<li>Data stored on your phone stays there: to erase it, use <em>Settings → Reset all data</em> or uninstall the app.</li>
+</ul>
+</section>
+
+<section>
+<h2>Option 1: in the app (easiest)</h2>
+<p>In DayFlow: <strong>Settings → Group and sync → Delete my account</strong>, then confirm.</p>
+</section>
+
+<section>
+<h2>Option 2: here, without the app</h2>
+<p>Sign in with the email and password of your DayFlow account, then confirm the deletion.</p>
+
+<form id="login">
+  <label for="email">Email</label>
+  <input id="email" type="email" autocomplete="email" required>
+  <label for="password">Password</label>
+  <input id="password" type="password" autocomplete="current-password" required>
+  <button type="submit" id="loginBtn">Sign in</button>
+</form>
+
+<div id="confirm" class="hidden">
+  <p class="note">Signed in as <strong id="who"></strong>.</p>
+  <label class="check"><input type="checkbox" id="sure"> I understand that deletion is permanent.</label>
+  <button class="danger" id="deleteBtn" disabled>Permanently delete my account</button>
+  <button class="ghost" id="cancelBtn" type="button">Cancel</button>
+</div>
+
+<p id="msg" class="msg" role="status"></p>
+</section>
+
+<section>
+<h2>Option 3: by email</h2>
+<p>Write to <a href="mailto:vayler.pro@gmail.com?subject=Delete%20my%20DayFlow%20account" class="contact">vayler.pro@gmail.com</a> from your account's email address, with the subject “Delete my DayFlow account”. Deletion is done within 30 days at most.</p>
+</section>
+
+<footer>DayFlow · <a href="privacy.html">Privacy policy</a> · <a href="suppression-compte.html">Français</a></footer>
+</main>
+
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+// App public key (same as in DayFlow): it only allows what the signed-in
+// account is permitted to do.
+const supabase = createClient(
+  'https://exmmpikvaerufhohgotb.supabase.co',
+  'sb_publishable_6X4uwbjq98BgcZwa5zTHkA_o8NtwIaW',
+  { auth: { persistSession: false } }
+);
+
+const $ = (id) => document.getElementById(id);
+const say = (text, kind = '') => { $('msg').textContent = text; $('msg').className = 'msg ' + kind; };
+
+function friendly(error) {
+  const t = (error?.message || '').toLowerCase();
+  if (t.includes('invalid login')) return 'Incorrect email or password.';
+  if (t.includes('not confirmed')) return 'Confirm your email first.';
+  if (t.includes('fetch') || t.includes('network')) return 'No internet connection. Try again.';
+  return 'Something went wrong. Try again, or email us.';
+}
+
+$('login').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  say('');
+  $('loginBtn').disabled = true;
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: $('email').value.trim(),
+    password: $('password').value,
+  });
+  $('loginBtn').disabled = false;
+  if (error) { say(friendly(error), 'err'); return; }
+  $('password').value = '';
+  $('who').textContent = data.user.email;
+  $('login').classList.add('hidden');
+  $('confirm').classList.remove('hidden');
+});
+
+$('sure').addEventListener('change', () => { $('deleteBtn').disabled = !$('sure').checked; });
+
+$('cancelBtn').addEventListener('click', async () => {
+  await supabase.auth.signOut();
+  $('confirm').classList.add('hidden');
+  $('login').classList.remove('hidden');
+  $('sure').checked = false;
+  $('deleteBtn').disabled = true;
+  say('');
+});
+
+$('deleteBtn').addEventListener('click', async () => {
+  $('deleteBtn').disabled = true;
+  $('cancelBtn').disabled = true;
+  say('Deleting…');
+  const { error } = await supabase.rpc('delete_account');
+  if (error) {
+    $('deleteBtn').disabled = false;
+    $('cancelBtn').disabled = false;
+    say(friendly(error), 'err');
+    return;
+  }
+  await supabase.auth.signOut().catch(() => {});
+  $('confirm').classList.add('hidden');
+  say('Your DayFlow account has been deleted. You can close this page.', 'ok');
+});
+</script>
+</body>
+</html>
